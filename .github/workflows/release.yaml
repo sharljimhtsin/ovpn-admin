@@ -20,7 +20,7 @@ jobs:
       - name: Go Release Binaries
         uses: wangyoucao577/go-release-action@v1.38
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           goversion: 1.17
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
