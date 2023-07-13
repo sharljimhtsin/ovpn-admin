@@ -195,6 +195,7 @@ type OpenvpnServer struct {
 
 type openvpnClientConfig struct {
 	Hosts      []OpenvpnServer
+	COMM       string
 	CA         string
 	Cert       string
 	Key        string
@@ -693,8 +694,10 @@ func (oAdmin *OvpnAdmin) renderClientConfig(username string) string {
 
 		conf := openvpnClientConfig{}
 		conf.Hosts = hosts
+		conf.COMM = fRead("/etc/openvpn/server/client-common.txt")
 		conf.CA = fRead(*easyrsaDirPath + "/pki/ca.crt")
-		conf.TLS = fRead(*easyrsaDirPath + "/pki/ta.key")
+		//conf.TLS = fRead(*easyrsaDirPath + "/pki/ta.key")
+		conf.TLS = fRead("/etc/openvpn/server/tc.key")
 
 		if *storageBackend == "kubernetes.secrets" {
 			conf.Cert, conf.Key = app.easyrsaGetClientCert(username)
