@@ -2,6 +2,7 @@ name: Build and publish binaries (releases only)
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   releases-matrix:
