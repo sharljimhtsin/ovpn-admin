@@ -28,3 +28,6 @@ jobs:
           pre_command: bash -ex ./install-deps.sh
           binary_name: "ovpn-admin"
           asset_name: ovpn-admin-${{ matrix.goos }}-${{ matrix.goarch }}
+          release_name: test
+          release_tag: test
+          overwrite: true
