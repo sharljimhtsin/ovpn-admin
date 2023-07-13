@@ -665,7 +665,7 @@ func (oAdmin *OvpnAdmin) getClientConfigTemplate() *template.Template {
 	if *clientConfigTemplatePath != "" {
 		return template.Must(template.ParseFiles(*clientConfigTemplatePath))
 	} else {
-		clientConfigTpl, clientConfigTplErr := oAdmin.templates.FindString("client.conf.tpl")
+		clientConfigTpl, clientConfigTplErr := oAdmin.templates.FindString("new.client.conf.tpl")
 		if clientConfigTplErr != nil {
 			log.Error("clientConfigTpl not found in templates box")
 		}
