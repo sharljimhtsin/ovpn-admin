@@ -1620,4 +1620,12 @@ func crlFix() {
 	if err != nil {
 		log.Error(err)
 	}
+	//                              * IMPORTANT *
+	//
+	//Revocation was successful. You must run 'gen-crl' and upload a new CRL to your
+	//infrastructure in order to prevent the revoked certificate from being accepted.
+	//
+	//root@ip-172-31-35-244:~# cp -f /etc/openvpn/server/easy-rsa/pki/crl.pem /etc/openvpn/server/crl.pem
+	o := runBash(fmt.Sprintf("cp -f %s %s", *easyrsaDirPath+"/pki/crl.pem", "/etc/openvpn/server/crl.pem"))
+	log.Debug(o)
 }
