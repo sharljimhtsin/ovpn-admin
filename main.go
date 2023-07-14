@@ -26,6 +26,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gobuffalo/packr/v2"
+	"github.com/kataras/basicauth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -72,6 +73,8 @@ var (
 	logLevel                 = kingpin.Flag("log.level", "set log level: trace, debug, info, warn, error (default info)").Default("info").Envar("LOG_LEVEL").String()
 	logFormat                = kingpin.Flag("log.format", "set log format: text, json (default text)").Default("text").Envar("LOG_FORMAT").String()
 	storageBackend           = kingpin.Flag("storage.backend", "storage backend: filesystem, kubernetes.secrets (default filesystem)").Default("filesystem").Envar("STORAGE_BACKEND").String()
+	webBasicAuthUser         = kingpin.Flag("web.basic-auth.user", "user for web server's Basic Auth").Default("admin").Envar("OVPN_WEB_USER").String()
+	webBasicAuthPassword     = kingpin.Flag("web.basic-auth.password", "password for web server's Basic Auth").Default("admin123456").Envar("OVPN_WEB_PASSWORD").String()
 
 	certsArchivePath = "/tmp/" + certsArchiveFileName
 	ccdArchivePath   = "/tmp/" + ccdArchiveFileName
@@ -555,34 +558,37 @@ func main() {
 
 	staticBox := packr.New("static", "./frontend/static")
 	static := CacheControlWrapper(http.FileServer(staticBox))
+	auth := basicauth.Default(map[string]string{
+		*webBasicAuthUser: *webBasicAuthPassword,
+	})
+	mux := http.NewServeMux()
+	mux.Handle("/", static)
+	mux.HandleFunc("/api/server/settings", ovpnAdmin.serverSettingsHandler)
+	mux.HandleFunc("/api/users/list", ovpnAdmin.userListHandler)
+	mux.HandleFunc("/api/user/create", ovpnAdmin.userCreateHandler)
+	mux.HandleFunc("/api/user/change-password", ovpnAdmin.userChangePasswordHandler)
+	mux.HandleFunc("/api/user/rotate", ovpnAdmin.userRotateHandler)
+	mux.HandleFunc("/api/user/delete", ovpnAdmin.userDeleteHandler)
+	mux.HandleFunc("/api/user/revoke", ovpnAdmin.userRevokeHandler)
+	mux.HandleFunc("/api/user/unrevoke", ovpnAdmin.userUnrevokeHandler)
+	mux.HandleFunc("/api/user/config/show", ovpnAdmin.userShowConfigHandler)
+	mux.HandleFunc("/api/user/disconnect", ovpnAdmin.userDisconnectHandler)
+	mux.HandleFunc("/api/user/statistic", ovpnAdmin.userStatisticHandler)
+	mux.HandleFunc("/api/user/ccd", ovpnAdmin.userShowCcdHandler)
+	mux.HandleFunc("/api/user/ccd/apply", ovpnAdmin.userApplyCcdHandler)
 
-	http.Handle("/", static)
-	http.HandleFunc("/api/server/settings", ovpnAdmin.serverSettingsHandler)
-	http.HandleFunc("/api/users/list", ovpnAdmin.userListHandler)
-	http.HandleFunc("/api/user/create", ovpnAdmin.userCreateHandler)
-	http.HandleFunc("/api/user/change-password", ovpnAdmin.userChangePasswordHandler)
-	http.HandleFunc("/api/user/rotate", ovpnAdmin.userRotateHandler)
-	http.HandleFunc("/api/user/delete", ovpnAdmin.userDeleteHandler)
-	http.HandleFunc("/api/user/revoke", ovpnAdmin.userRevokeHandler)
-	http.HandleFunc("/api/user/unrevoke", ovpnAdmin.userUnrevokeHandler)
-	http.HandleFunc("/api/user/config/show", ovpnAdmin.userShowConfigHandler)
-	http.HandleFunc("/api/user/disconnect", ovpnAdmin.userDisconnectHandler)
-	http.HandleFunc("/api/user/statistic", ovpnAdmin.userStatisticHandler)
-	http.HandleFunc("/api/user/ccd", ovpnAdmin.userShowCcdHandler)
-	http.HandleFunc("/api/user/ccd/apply", ovpnAdmin.userApplyCcdHandler)
+	mux.HandleFunc("/api/sync/last/try", ovpnAdmin.lastSyncTimeHandler)
+	mux.HandleFunc("/api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
+	mux.HandleFunc(downloadCertsApiUrl, ovpnAdmin.downloadCertsHandler)
+	mux.HandleFunc(downloadCcdApiUrl, ovpnAdmin.downloadCcdHandler)
 
-	http.HandleFunc("/api/sync/last/try", ovpnAdmin.lastSyncTimeHandler)
-	http.HandleFunc("/api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
-	http.HandleFunc(downloadCertsApiUrl, ovpnAdmin.downloadCertsHandler)
-	http.HandleFunc(downloadCcdApiUrl, ovpnAdmin.downloadCcdHandler)
-
-	http.Handle(*metricsPath, promhttp.HandlerFor(ovpnAdmin.promRegistry, promhttp.HandlerOpts{}))
-	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(*metricsPath, promhttp.HandlerFor(ovpnAdmin.promRegistry, promhttp.HandlerOpts{}))
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "pong")
 	})
 
 	log.Printf("Bind: http://%s:%s", *listenHost, *listenPort)
-	log.Fatal(http.ListenAndServe(*listenHost+":"+*listenPort, nil))
+	log.Fatal(http.ListenAndServe(*listenHost+":"+*listenPort, auth(mux)))
 }
 
 func CacheControlWrapper(h http.Handler) http.Handler {
